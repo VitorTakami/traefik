@@ -1,0 +1,46 @@
+version: '3'
+
+services:
+  reverse-proxy:
+    image: traefik:v2.8.1
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.http-catchall.rule=hostregex(`{host:.+}`)"
+      - "traefik.http.routers.http-catchall.entrypoints=web"
+      - "traefik.http.routers.http-catchall.middlewares=redirect-to-http@docker"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+    command:
+      - "--providers.docker.endpoint=unix:///var/run/docker.sock"
+      - "--providers.docker.swarmMode=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=traefik-public"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencryptresolver.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencryptresolver.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.letsencryptresolver.acme.email=vitor.takami@aplicativo.net"
+      - "--certificatesresolvers.letsencryptresolver.acme.storage=/letsencrypt/acme.json"
+      - "--api.insecure=true"
+      - "--api.dashboard=true"
+    ports:
+      - 80:80
+      - 8080:8080
+      - 443:443
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik-certificates:/letsencrypt
+    networks:
+      - traefik-public
+    dns:
+      - 1.1.1.1
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+
+volumes:
+  traefik-certificates:
+
+networks:
+  traefik-public:
+    external: true
